@@ -7,7 +7,7 @@ you should see that the supply chain sends two cloud events to AMR (a location,
 and a "container" running at that location).
 
 If you have targeted a full cluster you can also send some sample cloud events
-with the bash script here.
+with [the bash script here](send-location-event.sh).
 
 You can see the container events in the GraphQL playground using the following
 GraphQL query
