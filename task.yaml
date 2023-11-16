@@ -1,0 +1,106 @@
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: send-cloud-event-task
+  labels:
+    task: send-cloud-event
+  annotations:
+    tekton.dev/categories: Git
+    tekton.dev/pipelines.minVersion: "0.12.1"
+    tekton.dev/tags: cloudevents
+    tekton.dev/displayName: "send cloud event"
+    tekton.dev/platforms: "linux/amd64,linux/s390x,linux/ppc64le"
+spec:
+  description: >-
+    This task will send a cloudevent that creates a new location in AMR.
+    It also creates a container event.
+
+  params:
+  - name: IMAGE_DIGEST
+    description: digest of the built image.
+    default: ""
+  - name: IMAGE_URL
+    description: URL of the built image.
+    default: ""
+  - name: CORRELATION_ID
+    description: correlation-id for the source codebase.
+    default: vmware.tanzu.apps.location.created.v1
+  - name: CLOUD_EVENT_SINK
+    description: |
+      The endpoint for cloud events
+    type: string
+    default: http://amr-cloudevent-handler.metadata-store
+  results: []
+
+  steps:
+  - name: send-events
+    image: johnajimenez/ubuntu-bash-jq-curl-git:latest
+    script: |
+      #!/bin/bash -eux
+      # TODO remove unsafe x option.
+      #
+      # this posts a "location" cloud event to set up a "constellation" location.
+      #
+      # TODO if we are off-cluster, we need a token that works on the remote
+      # cluster. will this be necessary or will we have a local proxy?
+      TOKEN=$(cat /var/run/secrets/kubernetes.io/serviceaccount/token)
+      CLOUD_EVENT_SINK="$(params.CLOUD_EVENT_SINK)"
+      CORRELATION_ID="$(params.CORRELATION_ID)"
+      IMAGE_DIGEST="$(params.IMAGE_DIGEST)" IMAGE_URL="$(params.IMAGE_URL)"
+
+      PAYLOAD=$(cat <<EOF
+      {
+        "specversion": "1.0",
+        "id": "constellation-location",
+        "source": "tekton-task",
+        "type": "vmware.tanzu.apps.location.created.v1",
+        "contentType": "application/json",
+        "data": {
+          "reference": "constellation",
+          "labels": [
+            {
+              "key": "env",
+              "value": "constellation"
+            }
+          ]
+        }
+      }
+      EOF
+      )
+      # "source" here should refer to the constellation reference above
+      # TODO remove unsafe v option
+      curl -v -X POST \
+        -H "Content-Type: application/cloudevents+json" \
+        -H "Authorization: Bearer ${TOKEN}" \
+        -d "${PAYLOAD}" \
+        ${CLOUD_EVENT_SINK}
+
+      echo $CORRELATION_ID
+      TIMESTAMP=$(date -u +%Y-%M-%dT%R:%SZ)
+      ID_VAL="container-running-${RANDOM}"
+      PAYLOAD=$(cat <<EOF
+      {
+        "specversion": "1.0",
+        "id": "${ID_VAL}",
+        "source": "constellation",
+        "type": "vmware.tanzu.apps.container.running.v1",
+        "contentType": "application/json",
+        "data": {
+          "correlationId":"${CORRELATION_ID}",
+          "timestamp":"${TIMESTAMP}",
+          "imageUrl":"${IMAGE_URL}",
+          "imageDigest":"${IMAGE_DIGEST}",
+          "name":"${ID_VAL}",
+          "namespace":"not-a-real-namespace",
+          "state":"running"
+        }
+      }
+      EOF
+      )
+      # TODO optionally add a -k or a CA cert if the sink is TLS
+      # TODO remove unsafe v option
+      curl -v -X POST \
+        -H "Content-Type: application/cloudevents+json" \
+        -H "Authorization: Bearer ${TOKEN}" \
+        -d "${PAYLOAD}" \
+        ${CLOUD_EVENT_SINK}

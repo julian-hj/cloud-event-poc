@@ -1,0 +1,24 @@
+apiVersion: carto.run/v1alpha1
+kind: ClusterRunTemplate
+metadata:
+  name: send-cloud-event-taskrun
+spec:
+  template:
+    apiVersion: tekton.dev/v1beta1
+    kind: TaskRun
+    metadata:
+      generateName: $(runnable.metadata.name)$-
+      labels:
+        $(runnable.metadata.labels)$
+    spec:
+      serviceAccountName: $(runnable.spec.inputs.serviceAccount)$
+      taskRef: {name: $(selected.metadata.name)$}
+      params:
+        - name: SERVICE_ACCOUNT
+          value: $(runnable.spec.inputs.serviceAccount)$
+        - name: IMAGE_DIGEST
+          value: $(runnable.spec.inputs.imageDigest)$
+        - name: IMAGE_URL
+          value: $(runnable.spec.inputs.imageUrl)$
+        - name: CORRELATION_ID
+          value: $(runnable.spec.inputs.correlationId)$

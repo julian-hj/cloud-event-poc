@@ -1,0 +1,59 @@
+apiVersion: carto.run/v1alpha1
+kind: Workload
+metadata:
+  name: petclinic
+  namespace: my-apps
+  labels:
+    apps.tanzu.vmware.com/workload-type: web
+    apps.tanzu.vmware.com/has-no-tests: "true"
+    backstage.io/kubernetes-id: simple-app
+    app.kubernetes.io/part-of: tanzu-java-web-app
+
+spec:
+  source:
+    # source code location in a git repository.
+    #
+    git:
+      url: https://github.com/scothis/spring-petclinic.git
+      ref:
+        branch: "main"
+
+    # image containing the source code to be used throughout
+    # the supply chain
+    #
+    # image: harbor-repo.vmware.com/tanzu_desktop/golang-sample-source@sha256:e508a587
+
+  # serviceClaims to be bound through service-bindings
+  #
+  serviceClaims:
+    - name: broker
+      ref:
+        apiVersion: services.tanzu.vmware.com/v1alpha1
+        kind: RabbitMQ
+        name: rabbit-broker
+
+  # environment variables to be passed to the main container
+  # running the application.
+  #
+  env:
+    - name: SPRING_PROFILES_ACTIVE
+      value: mysql
+
+  # resource constraints for the main application.
+  #
+  resources:
+    requests:
+      memory: 1Gi
+      cpu: 100m
+    limits:
+      memory: 1Gi
+      cpu: 4000m
+
+  # any other parameters that don't fit the ones already typed.
+  #
+  params:
+    - name: my-company.com/defaults/java-version
+      value: "11"
+    - name: debug
+      value: "true"
+
