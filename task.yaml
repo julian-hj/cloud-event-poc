@@ -76,7 +76,7 @@ spec:
         ${CLOUD_EVENT_SINK}
 
       echo $CORRELATION_ID
-      TIMESTAMP=$(date -u +%Y-%m-%dT%R:%SZ)
+      TIMESTAMP=$(date -u +%Y-%M-%dT%R:%SZ)
       ID_VAL="container-running-${RANDOM}"
       PAYLOAD=$(cat <<EOF
       {
